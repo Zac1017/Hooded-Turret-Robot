@@ -97,5 +97,7 @@ public class Turret extends SubsystemBase{
     public void setHoodPosition(double position) {
         kHoodMotor.setControl(kClosedLoopPosition.withPosition(position));
     }
-        
+        /* 
+          initial velocity = (distance from target) / (cos(theta) (sqrt((change in height - distance from target(tan(thetta))/-4.9))))
+         */
 }
