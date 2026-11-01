@@ -1,6 +1,8 @@
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
+import com.ctre.phoenix6.controls.PositionDutyCycle;
+import com.ctre.phoenix6.controls.VelocityDutyCycle;
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
@@ -14,6 +16,9 @@ public class Turret extends SubsystemBase{
     private final TalonFX kRotationMotor = new TalonFX(0);
     private final TalonFX kFlyWheelMotor = new TalonFX(1);
     private final TalonFX kHoodMotor = new TalonFX(2);
+
+    private final PositionDutyCycle kClosedLoopPosition = new PositionDutyCycle(0.0d).withEnableFOC(false);
+    private final VelocityDutyCycle kClosedLoopVelocity = new VelocityDutyCycle(0.0d).withEnableFOC(false);
 
     private final Pigeon2 pigeon;
 
@@ -32,7 +37,6 @@ public class Turret extends SubsystemBase{
             
             public final Translation3d position;
         }
-
 
 
     public Turret(Pigeon2 pigeon) {
@@ -82,7 +86,16 @@ public class Turret extends SubsystemBase{
         
     }
 
-    
+    public void setRotationPosition(double position) {
+        kRotationMotor.setControl(kClosedLoopPosition.withPosition(position));
+    }
 
+    public void setVelocity(double velocity) {
+        kFlyWheelMotor.setControl(kClosedLoopVelocity.withVelocity(velocity));
+    }
+
+    public void setHoodPosition(double position) {
+        kHoodMotor.setControl(kClosedLoopPosition.withPosition(position));
+    }
         
 }
