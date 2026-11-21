@@ -8,8 +8,11 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import frc.robot.subsystems.drive.SwerveDrive;
 
 public class Turret extends SubsystemBase{
 
@@ -20,7 +23,7 @@ public class Turret extends SubsystemBase{
     private final PositionDutyCycle kClosedLoopPosition = new PositionDutyCycle(0.0d).withEnableFOC(false);
     private final VelocityDutyCycle kClosedLoopVelocity = new VelocityDutyCycle(0.0d).withEnableFOC(false);
 
-    private final Pigeon2 pigeon;
+    private final SwerveDrive swerve;
 
     public enum Targets {
             NONE(Translation3d.kZero),
@@ -36,11 +39,14 @@ public class Turret extends SubsystemBase{
                 }
             
             public final Translation3d position;
+
         }
 
+        public static Targets target;
 
-    public Turret(Pigeon2 pigeon) {
-        this.pigeon = pigeon;
+
+    public Turret(SwerveDrive swerve) {
+        this.swerve = swerve;
 
         TalonFXConfiguration rotationConfig = new TalonFXConfiguration();
         
@@ -100,4 +106,56 @@ public class Turret extends SubsystemBase{
         /* 
           initial velocity = (distance from target) / (cos(theta) (sqrt((change in height - distance from target(tan(thetta))/-4.9))))
          */
+
+    public Translation2d getRobotPose() {
+        return swerve.getRawOdometeryPose().getTranslation();
+    }
+
+    public Rotation2d getRobotRotation() {
+        return swerve.getRawOdometeryPose().getRotation();
+    }
+
+    public Rotation2d getTurretRotation() {
+        return Rotation2d.fromDegrees(kRotationMotor.getPosition().getValueAsDouble() * 360.0);
+    }
+
+    public Translation2d getTranslationFromTarget(Targets target) {
+        Translation2d robotTranslation = getRobotPose();
+
+        Translation2d targetTranslation = new Translation2d(target.position.getX(), target.position.getY());
+
+        return new Translation2d(
+            targetTranslation.getX() - robotTranslation.getX(),
+            targetTranslation.getY() - robotTranslation.getY()
+        );
+    }
+
+    public Rotation2d getAngleToTarget(Targets target) {
+
+        double targetAngle = Math.toDegrees(Math.atan2(
+            getTranslationFromTarget(target).getY(),
+            getTranslationFromTarget(target).getX()
+        ));
+
+        double angle = targetAngle - getTurretRotation().getDegrees();
+
+        while (angle > 180) {
+            angle -= 360;
+        }
+
+        while (angle < -180) {
+            angle += 360;
+        }
+
+        return Rotation2d.fromDegrees(angle);
+    }
+
+        
+
+        
+    }
+
+
+
+
 }
