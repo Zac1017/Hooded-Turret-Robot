@@ -165,7 +165,13 @@ public class Turret extends SubsystemBase{
 
         double minimumTheta = 45.0 + 0.5 * Math.toDegrees(Math.atan2(deltaY, deltaX));
 
-        double initialVelocity = Math.sqrt(-4.9 * Math.pow(deltaX , 2) / (Math.pow(Math.cos(Math.toRadians(minimumTheta)), 2) * (-deltaX * Math.tan(Math.toRadians(minimumTheta)) + deltaY)));
+        double initialVelocity = Math.sqrt(-4.9 * Math.pow(deltaX , 2) 
+        / (Math.pow(Math.cos(Math.toRadians(minimumTheta)), 2) * (-deltaX * Math.tan(Math.toRadians(minimumTheta)) 
+        + deltaY)));
+
+        if (deltaX <= 0 || deltaY <= 0) {
+            return new double[]{Double.NaN, Double.NaN};
+        }
 
         return new double[]{minimumTheta, initialVelocity};
     }
