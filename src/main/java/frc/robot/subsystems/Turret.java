@@ -42,7 +42,7 @@ public class Turret extends SubsystemBase{
 
         }
 
-        public static Targets target;
+        public Targets target;
 
 
     public Turret(SwerveDrive swerve) {
@@ -103,12 +103,13 @@ public class Turret extends SubsystemBase{
     public void setHoodPosition(double position) {
         kHoodMotor.setControl(kClosedLoopPosition.withPosition(position));
     }
-        /* 
-          initial velocity = (distance from target) / (cos(theta) (sqrt((change in height - distance from target(tan(thetta))/-4.9))))
-         */
 
-    public Translation2d getRobotPose() {
-        return swerve.getRawOdometeryPose().getTranslation();
+
+    public Translation3d getRobotPose() {
+        return new Translation3d(swerve.getRawOdometeryPose().getTranslation().getX(),
+            swerve.getRawOdometeryPose().getTranslation().getY(),
+             0.565
+        );
     }
 
     public Rotation2d getRobotRotation() {
@@ -119,36 +120,63 @@ public class Turret extends SubsystemBase{
         return Rotation2d.fromDegrees(kRotationMotor.getPosition().getValueAsDouble() * 360.0);
     }
 
-    public Translation2d getTranslationFromTarget(Targets target) {
-        Translation2d robotTranslation = getRobotPose();
+    public Translation3d getTranslationFromTarget(Targets target) {
+        Translation3d robotTranslation = getRobotPose();
 
-        Translation2d targetTranslation = new Translation2d(target.position.getX(), target.position.getY());
+        Translation3d targetTranslation = new Translation3d(target.position.getX(), 
+            target.position.getY(), 
+            target.position.getZ())
+        ;
 
-        return new Translation2d(
+        return new Translation3d(
             targetTranslation.getX() - robotTranslation.getX(),
-            targetTranslation.getY() - robotTranslation.getY()
+            targetTranslation.getY() - robotTranslation.getY(),
+            targetTranslation.getZ() - robotTranslation.getZ()
         );
     }
 
     public Rotation2d getAngleToTarget(Targets target) {
 
-        double targetAngle = Math.toDegrees(Math.atan2(
-            getTranslationFromTarget(target).getY(),
-            getTranslationFromTarget(target).getX()
-        ));
+        
+        Translation3d displacement = getTranslationFromTarget(target);
 
-        double angle = targetAngle - getTurretRotation().getDegrees();
+        Rotation2d targetAngle = new Rotation2d(displacement.getX(), displacement.getY());
 
-        while (angle > 180) {
-            angle -= 360;
-        }
+        Rotation2d robotAngle = getRobotRotation();
 
-        while (angle < -180) {
-            angle += 360;
-        }
+        Rotation2d desiredTurretAngle = targetAngle.minus(robotAngle);
 
-        return Rotation2d.fromDegrees(angle);
+        return desiredTurretAngle.minus(getTurretRotation());
+  
     }
+
+    public double[] getThetaAndVelocity(Targets target) {
+
+        Translation3d displacement = getTranslationFromTarget(target);
+        double deltaX = Math.hypot(displacement.getX(), displacement.getY());
+        double deltaY = displacement.getZ();
+
+        // initialVelocity = sqrt((-4.9 * (deltaX)^2) / (cos^2(theta) * (-deltaX * tan(theta) + deltaY)))
+
+        // dvi/dtheta = 1/2(4.9(deltaX)^2/cos^(2theta)(deltaY-deltaXtan(theta)))^(-1/2) * (-4.9(deltaX)^2*(-2sin(theta)cos(theta))(deltaY - deltaXtan(theta)+cos^2(theta)(-deltaXsec^2(theta))))/(cos^2(theta)(deltaY-deltaXtan(theta)))^2
+        //(deltaY - deltaXtan(theta)+cos^2(theta)(-deltaXsec^2(theta))))/(cos^2(theta)(deltaY-deltaXtan(theta)))^2
+
+        //minimum theta = 45 degrees + 1/2 tan^-1((deltaX / -deltaY))
+
+        double minimumTheta = 45.0 + 0.5 * Math.toDegrees(Math.atan2(deltaY, deltaX));
+
+        double initialVelocity = Math.sqrt(-4.9 * Math.pow(deltaX , 2) / (Math.pow(Math.cos(Math.toRadians(minimumTheta)), 2) * (-deltaX * Math.tan(Math.toRadians(minimumTheta)) + deltaY)));
+
+        return new double[]{minimumTheta, initialVelocity};
+    }
+
+    @Override
+    public void periodic() {
+
+    }
+
+
+
 
         
 
