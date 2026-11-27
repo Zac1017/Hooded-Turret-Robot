@@ -3,6 +3,7 @@ package frc.robot.subsystems;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.PositionDutyCycle;
 import com.ctre.phoenix6.controls.VelocityDutyCycle;
+import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.Pigeon2;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
@@ -23,7 +24,14 @@ public class Turret extends SubsystemBase{
     private final PositionDutyCycle kClosedLoopPosition = new PositionDutyCycle(0.0d).withEnableFOC(false);
     private final VelocityDutyCycle kClosedLoopVelocity = new VelocityDutyCycle(0.0d).withEnableFOC(false);
 
+    private final VoltageOut kOpenLoop = new VoltageOut(0.0d);
+
     private final SwerveDrive swerve;
+
+    private boolean hasZeroedPosition = false;
+    private double zeroPosition;
+    private double globalRotation;
+
 
     public enum Targets {
             NONE(Translation3d.kZero),
@@ -42,7 +50,7 @@ public class Turret extends SubsystemBase{
 
         }
 
-        public Targets target;
+        public Targets target = Targets.NONE;
 
 
     public Turret(SwerveDrive swerve) {
@@ -93,7 +101,7 @@ public class Turret extends SubsystemBase{
     }
 
     public void setRotationPosition(double position) {
-        kRotationMotor.setControl(kClosedLoopPosition.withPosition(position));
+        kRotationMotor.setControl(kClosedLoopPosition.withPosition((position / 360) * 5)); //TODO: Find GEAR RATIO
     }
 
     public void setVelocity(double velocity) {
@@ -117,7 +125,11 @@ public class Turret extends SubsystemBase{
     }
 
     public Rotation2d getTurretRotation() {
-        return Rotation2d.fromDegrees(kRotationMotor.getPosition().getValueAsDouble() * 360.0);
+        double motorRotations = kRotationMotor.getPosition().getValueAsDouble();
+
+        double turretRotations = motorRotations / 5; //TODO: FIND GEAR RATIO!!!!!
+
+        return Rotation2d.fromRotations(turretRotations);
     }
 
     public Translation3d getTranslationFromTarget(Targets target) {
@@ -135,19 +147,22 @@ public class Turret extends SubsystemBase{
         );
     }
 
+    public Rotation2d getDesiredTurretAngle(Targets target) {
+
+        Translation3d displacement = getTranslationFromTarget(target);
+        
+        Rotation2d targetAngle = new Rotation2d(
+            displacement.getX(),
+            displacement.getY()
+        );
+
+        return targetAngle.minus(getRobotRotation());
+
+    }
+
     public Rotation2d getAngleToTarget(Targets target) {
 
-        
-        Translation3d displacement = getTranslationFromTarget(target);
-
-        Rotation2d targetAngle = new Rotation2d(displacement.getX(), displacement.getY());
-
-        Rotation2d robotAngle = getRobotRotation();
-
-        Rotation2d desiredTurretAngle = targetAngle.minus(robotAngle);
-
-        return desiredTurretAngle.minus(getTurretRotation());
-  
+        return getDesiredTurretAngle(target).minus(getTurretRotation());
     }
 
     public double[] getThetaAndVelocity(Targets target) {
@@ -180,6 +195,10 @@ public class Turret extends SubsystemBase{
 
         double initialVelocity = Math.sqrt((9.81 / 2) * Math.pow(deltaX, 2) / denom);
 
+        if (!Double.isFinite(initialVelocity)) {
+            return new double[]{Double.NaN, Double.NaN};
+        }
+
         return new double[]{optimalTheta, initialVelocity};
 
         // Translation3d displacement = getTranslationFromTarget(target);
@@ -206,8 +225,41 @@ public class Turret extends SubsystemBase{
         // return new double[]{optimalTheta, initialVelocity};
     }
 
+
+    public void zeroTurret() {
+        
+            double current = Math.abs(kRotationMotor.getTorqueCurrent().getValueAsDouble());
+
+            if (current > 0) { //TODO: Find Value for zeroe current threshold
+                kRotationMotor.setControl(kOpenLoop.withOutput(0));
+                kRotationMotor.setPosition(0);
+                globalRotation = 0;
+                hasZeroedPosition = true;
+            } else {
+                kRotationMotor.setControl(kOpenLoop.withOutput(1.5)); //TODO: Find Zeroing voltage
+            }
+    }
+
+    public double projectileVelocityToMotorRPS(double velocity) {
+        return 2 * (velocity / (2 * Math.PI * 1)); //TODO: FIND FLYWHEEL RADIUS IN METERS AND GEAR RATIO. 2 is gear ratio 1 is radius
+    }
+
     @Override
     public void periodic() {
+        if (!hasZeroedPosition) {
+            zeroTurret();
+            return;
+        }
+
+       setVelocity(projectileVelocityToMotorRPS(getThetaAndVelocity(target)[1]));
+       setHoodPosition(getThetaAndVelocity(target)[0]);
+
+       setRotationPosition(getAngleToTarget(target).getDegrees());
+       
+        // kFlyWheelMotor.setControl(kClosedLoopVelocity.withVelocity(getThetaAndVelocity(target)[1]));
+        // kHoodMotor.setControl(kClosedLoopPosition.withPosition(getThetaAndVelocity(target)[0]));
+
+        // kRotationMotor.setControl(kClosedLoopPosition.withPosition(getAngleToTarget(target).getDegrees()));
 
     }
 
