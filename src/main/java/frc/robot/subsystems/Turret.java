@@ -153,27 +153,57 @@ public class Turret extends SubsystemBase{
     public double[] getThetaAndVelocity(Targets target) {
 
         Translation3d displacement = getTranslationFromTarget(target);
-        double deltaX = Math.hypot(displacement.getX(), displacement.getY());
+
+        double deltaX = Math.hypot(
+            displacement.getX(),
+            displacement.getY()
+        );
+
         double deltaY = displacement.getZ();
 
-        // initialVelocity = sqrt((-4.9 * (deltaX)^2) / (cos^2(theta) * (-deltaX * tan(theta) + deltaY)))
-
-        // dvi/dtheta = 1/2(4.9(deltaX)^2/cos^(2theta)(deltaY-deltaXtan(theta)))^(-1/2) * (-4.9(deltaX)^2*(-2sin(theta)cos(theta))(deltaY - deltaXtan(theta)+cos^2(theta)(-deltaXsec^2(theta))))/(cos^2(theta)(deltaY-deltaXtan(theta)))^2
-        //(deltaY - deltaXtan(theta)+cos^2(theta)(-deltaXsec^2(theta))))/(cos^2(theta)(deltaY-deltaXtan(theta)))^2
-
-        //minimum theta = 45 degrees + 1/2 tan^-1((deltaX / -deltaY))
-
-        double optimalTheta = 45.0 + 0.5 * Math.toDegrees(Math.atan2(deltaY, deltaX));
-
-        double initialVelocity = Math.sqrt(-4.9 * Math.pow(deltaX , 2) 
-        / (Math.pow(Math.cos(Math.toRadians(optimalTheta)), 2) * (-deltaX * Math.tan(Math.toRadians(optimalTheta)) 
-        + deltaY)));
-
-        if (deltaX <= 0 || deltaY <= 0) {
+        if (deltaX <= 0 || !Double.isFinite(deltaX) || !Double.isFinite(deltaY)) { //isFinite checks if the double is a valid, finite number
             return new double[]{Double.NaN, Double.NaN};
         }
 
+        double optimalTheta = 45.0 + 0.5 * Math.toDegrees(
+            Math.atan2(deltaY, deltaX)
+        );
+        
+        double thetaRadians = Math.toRadians(optimalTheta);
+
+        double denom = Math.pow(Math.cos(thetaRadians), 2) 
+            * (deltaX * Math.tan(thetaRadians) - deltaY);
+
+        if (denom <= 0 || !Double.isFinite(denom)) {
+            return new double[]{Double.NaN, Double.NaN};
+        }
+
+        double initialVelocity = Math.sqrt((9.81 / 2) * Math.pow(deltaX, 2) / denom);
+
         return new double[]{optimalTheta, initialVelocity};
+
+        // Translation3d displacement = getTranslationFromTarget(target);
+        // double deltaX = Math.hypot(displacement.getX(), displacement.getY());
+        // double deltaY = displacement.getZ();
+
+        // // initialVelocity = sqrt((-4.9 * (deltaX)^2) / (cos^2(theta) * (-deltaX * tan(theta) + deltaY)))
+
+        // // dvi/dtheta = 1/2(4.9(deltaX)^2/cos^(2theta)(deltaY-deltaXtan(theta)))^(-1/2) * (-4.9(deltaX)^2*(-2sin(theta)cos(theta))(deltaY - deltaXtan(theta)+cos^2(theta)(-deltaXsec^2(theta))))/(cos^2(theta)(deltaY-deltaXtan(theta)))^2
+        // //(deltaY - deltaXtan(theta)+cos^2(theta)(-deltaXsec^2(theta))))/(cos^2(theta)(deltaY-deltaXtan(theta)))^2
+
+        // //minimum theta = 45 degrees + 1/2 tan^-1((deltaX / -deltaY))
+
+        // double optimalTheta = 45.0 + 0.5 * Math.toDegrees(Math.atan2(deltaY, deltaX));
+
+        // double initialVelocity = Math.sqrt(-4.9 * Math.pow(deltaX , 2) 
+        // / (Math.pow(Math.cos(Math.toRadians(optimalTheta)), 2) * (-deltaX * Math.tan(Math.toRadians(optimalTheta)) 
+        // + deltaY)));
+
+        // if (deltaX <= 0 || !Double.isFinite(deltaX) || !Double.isFinite(deltaY)) {
+        //     return new double[]{Double.NaN, Double.NaN};
+        // }
+
+        // return new double[]{optimalTheta, initialVelocity};
     }
 
     @Override
